@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as np
 
 # ReLU, Softmax & loss function (MSE or cross-entropy)
 def relu(z):
@@ -17,10 +17,10 @@ def softmax(z):
     exp_z = np.exp(z - np.max(z, axis=1, keepdims=True))
     return exp_z / np.sum(exp_z, axis=1, keepdims=True)
 
-def one_hot(file, num_classes=10):
-    """Loads the labels .npy file and converts labels into a one-hot matrix."""
-    file = np.load(file).astype(int).flatten()
-    return np.eye(num_classes)[file]
+def one_hot(labels_array, num_classes=10):
+    """Converts a numpy array of labels into a one-hot matrix."""
+    labels_array = labels_array.astype(int).flatten()
+    return np.eye(num_classes)[labels_array]
 
 def ce_loss(y_true, y_pred, batch_size):
     epsilon = 1e-15  # prevents log(0) = -inf
@@ -28,5 +28,3 @@ def ce_loss(y_true, y_pred, batch_size):
     loss = -np.sum(y_true * np.log(y_pred))
     return loss / batch_size
 
-# if __name__ == "__main__":
-#     print("Testing math tools...")

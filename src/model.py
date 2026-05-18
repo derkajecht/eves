@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as np
 import sys
 import layers as lay
 import config as cf
@@ -48,46 +48,66 @@ def forward_prop(image_data, parameters):
     return probs, cache
 
 def back_prop(Y_true, AL, cache, parameters):
-    """
-    Y_true:   One-hot labels, shape (batch_size, num_classes)
-    AL:       Softmax output predictions, shape (batch_size, num_classes)
-    cache:    Dict with A0, Zl, Al for each layer
-    parameters: Dict with W1, b1, W2, b2, etc.
-    """
     L = len(parameters) // 2
     gradients = {}
+    m = Y_true.shape[0]
 
-    # output layer
+    # Output layer error
     dZL = AL - Y_true
-    gradients[f"dW{L}"] = cache[f"A{L-1}"].T @ dZL
-    gradients[f"db{L}"] = np.sum(dZL, axis=0, keepdims=True)
+    gradients[f"dZ{L}"] = dZL
+
+    gradients[f"dW{L}"] = (1/m) * (cache[f"A{L-1}"].T @ dZL)
+    gradients[f"db{L}"] = (1/m) * np.sum(dZL, axis=0, keepdims=True)
 
     for l in range(L - 1, 0, -1):
-        # dZ[l] = (dZ[l+1] @ W[l+1].T) * relu_derivative(Z[l])
-        # Propagate error backward through weights, then mask dead ReLUs
-        gradients[f"dZ{l}"] = (gradients[f"dZ{l+1}"] @ parameters[f"W{l+1}"].T) * \
-                              mm.relu_derivative(cache[f"Z{l}"])
+        # Backprop through ReLU
+        gradients[f"dZ{l}"] = (gradients[f"dZ{l+1}"] @ parameters[f"W{l+1}"].T) * mm.relu_derivative(cache[f"Z{l}"])
 
-        # dW[l] = A[l-1].T @ dZ[l]
-        gradients[f"dW{l}"] = cache[f"A{l-1}"].T @ gradients[f"dZ{l}"]
-
-        # db[l] = sum(dZ[l]) across batch
-        gradients[f"db{l}"] = np.sum(gradients[f"dZ{l}"], axis=0, keepdims=True)
+        gradients[f"dW{l}"] = (1/m) * (cache[f"A{l-1}"].T @ gradients[f"dZ{l}"])
+        gradients[f"db{l}"] = (1/m) * np.sum(gradients[f"dZ{l}"], axis=0, keepdims=True)
 
     return gradients
 
-def update_parameters(parameters, gradients, learning_rate):
+def update_parameters(parameters, gradients, v, learning_rate, momentum, weight_decay):
     L = len(parameters) // 2
     for l in range(1, L + 1):
-        parameters[f"W{l}"] -= learning_rate * gradients[f"dW{l}"]
-        parameters[f"b{l}"] -= learning_rate * gradients[f"db{l}"]
-    return parameters
+        gradients[f"dW{l}"] = np.clip(gradients[f"dW{l}"], -1.0, 0.1)
+        gradients[f"db{l}"] = np.clip(gradients[f"db{l}"], -1.0, 0.1)
+        for prop in ['W', 'b']:
+            key = f"{prop}{l}"
+            grad_key = f"d{key}"
 
-# images = np.load(cf.images_processed_path)
-# labels = np.load(cf.labels_processed_path)
-# oh_labels = mm.one_hot(labels)
-# params = initialize_parameters(cf.LAYER_DIMS)
-#
-# result = forward_prop(images, params)
-# print(result[0])
+            # Weight Decay (L2) only on Weights, not Biases
+            reg_grad = np.clip(gradients[grad_key], -1.0, 1.0)
+            if prop == 'W':
+                reg_grad += weight_decay * parameters[key]
 
+            # Update Velocity: v = (momentum * v) - (lr * grad)
+            v[key] = (momentum * v[key]) - (learning_rate * reg_grad)
+
+            # Update Parameters: W = W + v
+            parameters[key] += v[key]
+
+
+    return parameters, v
+
+def initialise_velocity(parameters):
+    velocity = {}
+    for key, value in parameters.items():
+        velocity[key] = np.zeros_like(value)
+    return velocity
+
+images = np.load(cf.images_processed_path)
+labels_raw = np.load(cf.labels_processed_path)
+params = initialize_parameters(cf.LAYER_DIMS)
+
+probs, cache = forward_prop(images, params)
+# probs = (probs, probs.shape)
+# One hot labels
+oh_labels = mm.one_hot(labels_raw)
+# oh_labels_ = (oh_labels, oh_labels_shape)
+
+gradients = back_prop(oh_labels, probs, cache, params)
+# print(probs)
+# print(oh_labels)
+# print(gradients)

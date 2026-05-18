@@ -1,5 +1,5 @@
 import micro_math as mm
-import numpy as np
+import cupy as np
 
 def i_layer(image_data):
     """Takes the image data as input and reshapes it, ready for sending onto the hidden layers."""

@@ -13,4 +13,15 @@ labels_processed_path: Final[Path] = Path(__file__).parent.parent / "data" / "ci
 DL_512_COUNT = 512 # Dense layer of 512 neurons
 
 # LAYERS
-LAYER_DIMS = [3072, 512, 512, 512, 10]
+LAYER_DIMS = [3072, 512, 512, 512, 512, 512, 512, 512, 512, 10]
+
+# EPOCHS
+# EPOCHS = 100000
+EPOCHS = 2000
+
+LEARNING_RATE = 0.0001
+LR_DECAY_RATE = 0.9
+MIN_LR = 1e-6
+WEIGHT_DECAY = 1e-4
+MOMENTUM = 0.9
+
