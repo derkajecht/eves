@@ -22,9 +22,9 @@ input_layer = images.reshape(images.shape[0], -1)
 def main() -> int:
     """Entry point for unpickling, reshaping and transposing the image data,
     ready for model injection."""
-    # cifar_loader(config.images_processed_path, images)
-    # cifar_loader(config.labels_processed_path, labels)
-    print(input_layer.shape)
+    cifar_loader(config.images_processed_path, images)
+    cifar_loader(config.labels_processed_path, labels)
+    # print(input_layer.shape)
     return 0
 
 
